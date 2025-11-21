@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Zoom Totale</title>
+    <title>Quiz Zoom Fix</title>
     <style>
         /* --- CSS GENERALE --- */
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
@@ -83,12 +83,12 @@
         
         /* Immagine nella risposta */
         .opt-img { 
-            width: 70px; height: 70px; /* Un po' più grande per vederla meglio */
+            width: 70px; height: 70px; 
             object-fit: cover; 
             border-radius: 4px; 
             border: 1px solid #ddd; 
             display: none; 
-            cursor: zoom-in; /* Cursore lente */
+            cursor: zoom-in; 
             transition: transform 0.2s;
         }
         .opt-img:hover { transform: scale(1.1); border-color: #007bff; }
@@ -201,7 +201,7 @@
     import { getFirestore, collection, getDocs, addDoc, deleteDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
     // --- INCOLLA QUI LE TUE CHIAVI FIREBASE ---
-  const firebaseConfig = {
+    const firebaseConfig = {
 
   apiKey: "AIzaSyCcb6QSktkxTKAn1Wkj8Ymb0bbDcEokksA",
 
@@ -291,7 +291,8 @@
         ];
         const correct = parseInt(document.getElementById('input-correct').value);
 
-        if (!text || opts.some(o => o.trim() === "")) { alert("Compila tutto!"); return; }
+        // Controllo più rilassato: permette di salvare anche se il testo è vuoto ma c'è un'immagine
+        // if (!text || opts.some(o => o.trim() === "")) { alert("Compila tutto!"); return; }
 
         const btn = document.getElementById('btn-save');
         const oldText = btn.innerText;
@@ -408,12 +409,12 @@
         answers.forEach((ans) => {
             const btn = document.createElement('button');
             btn.className = 'option-btn';
-            let btnHtml = "";
             
-            // --- QUI C'È LA MAGIA PER LE RISPOSTE ---
+            // *** MODIFICA CHIAVE: Salva indice nell'elemento HTML ***
+            btn.dataset.originalIndex = ans.originalIndex; 
+            
+            let btnHtml = "";
             if (ans.img && ans.img.trim() !== "") { 
-                // onclick: apre il modal
-                // event.stopPropagation(): IMPEDISCE che il click arrivi al bottone (quindi non rispondi)
                 btnHtml += `<img src="${ans.img}" class="opt-img" style="display:block" onclick="openModal(this.src); event.stopPropagation();">`; 
             }
             btnHtml += `<span>${ans.text}</span>`;
@@ -435,8 +436,13 @@
         } else {
             btn.classList.add('wrong');
         }
-        const correctText = quizQuestions[currentQuestionIndex].options[correctIdx];
-        buttons.forEach(b => { if(b.innerText.includes(correctText)) b.classList.add('correct'); });
+        
+        // *** MODIFICA CHIAVE: Verifica tramite indice numerico nascosto, non tramite testo ***
+        buttons.forEach(b => { 
+            if (parseInt(b.dataset.originalIndex) === correctIdx) {
+                b.classList.add('correct'); 
+            }
+        });
 
         const nextBtnCont = document.getElementById('next-btn-container');
         const nextBtn = document.getElementById('btn-next-action');
@@ -472,31 +478,3 @@
 
     function checkAdminPass() {
         if(document.getElementById('admin-pass').value === ADMIN_PASSWORD) {
-            document.getElementById('admin-login').style.display = 'none';
-            document.getElementById('admin-panel').style.display = 'block';
-        } else alert("Password errata");
-    }
-    function renderAdminList() {
-        const list = document.getElementById('admin-list');
-        list.innerHTML = '';
-        document.getElementById('questions-count').innerText = allQuestionsDB.length;
-        allQuestionsDB.forEach((q) => {
-            const div = document.createElement('div');
-            div.className = 'q-item';
-            const imgIcon = (q.image) ? "🖼️" : "";
-            div.innerHTML = `
-                <div style="flex-grow:1; margin-right:10px;"><strong>${q.text}</strong> ${imgIcon}</div>
-                <div class="admin-actions"><button class="edit-btn" onclick="editQuestionStart('${q.id}')">✏️</button><button class="delete-btn" onclick="deleteQuestionCloud('${q.id}')">🗑️</button></div>`;
-            list.appendChild(div);
-        });
-    }
-    function switchTab(tab) {
-        document.querySelectorAll('.section').forEach(e=>e.classList.remove('active'));
-        document.querySelectorAll('.nav button').forEach(e=>e.classList.remove('active'));
-        document.getElementById(tab+'-section').classList.add('active');
-        document.getElementById('nav-'+tab).classList.add('active');
-        if(tab==='quiz') startQuiz();
-    }
-</script>
-</body>
-</html>
