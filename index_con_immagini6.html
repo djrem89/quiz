@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz con Start Manuale</title>
+    <style>
+        /* --- STILE BASE --- */
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .container { background: white; width: 100%; max-width: 700px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 20px; position: relative; }
+        
+        /* ERROR BOX */
+        #error-box { background-color: #ffebee; color: #c62828; padding: 15px; border: 1px solid #ef9a9a; border-radius: 5px; margin-bottom: 20px; display: none; text-align: center; font-weight: bold; }
+
+        h1, h2 { text-align: center; color: #333; }
+
+        /* --- NAVIGAZIONE --- */
+        .nav { display: flex; justify-content: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .nav button { background: none; border: none; font-size: 16px; margin: 0 10px; cursor: pointer; padding: 5px 10px; color: #666; border-bottom: 2px solid transparent; transition: 0.3s; }
+        .nav button.active { color: #007bff; font-weight: bold; border-bottom: 2px solid #007bff; }
+
+        .section { display: none; }
+        .section.active { display: block; }
+        
+        /* --- START SCREEN --- */
+        #start-screen { text-align: center; padding: 30px 0; }
+        .btn-start {
+            background-color: #007bff; 
+            color: white; 
+            font-size: 1.2em; 
+            padding: 15px 40px; 
+            border: none; 
+            border-radius: 30px; 
+            cursor: pointer; 
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,123,255,0.3);
+            transition: transform 0.2s;
+        }
+        .btn-start:hover { transform: scale(1.05); background-color: #0056b3; }
+
+        /* --- QUIZ UI --- */
+        .question-content { text-align: left; margin-bottom: 20px; }
+        .q-main-img { max-width: 100%; max-height: 250px; border-radius: 8px; display: none; cursor: zoom-in; margin-bottom: 15px; }
+        .question-text { font-size: 1.3em; font-weight: 600; margin: 10px 0; text-align: left; }
+        
+        .options-container { display: flex; flex-direction: column; gap: 10px; }
+        .option-btn { padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; background: white; cursor: pointer; display: flex; align-items: center; gap: 15px; text-align: left; }
+        .opt-img { width: 70px; height: 70px; object-fit: cover; border-radius: 4px; display: none; cursor: zoom-in; }
+        .correct { background: #d4edda !important; border-color: #28a745 !important; }
+        .wrong { background: #f8d7da !important; border-color: #dc3545 !important; }
+        
+        /* Admin UI */
+        .form-group { margin-bottom: 15px; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
+        input, select { width: 100%; padding: 10px; margin-bottom: 5px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box;}
+        .btn-primary { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        /* Modal Zoom */
+        #img-modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); justify-content: center; align-items: center; }
+        .modal-content { max-width: 95%; max-height: 95%; }
+        .close-modal { position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<!-- MODAL ZOOM -->
+<div id="img-modal" onclick="document.getElementById('img-modal').style.display='none'">
+    <span class="close-modal">&times;</span>
+    <img class="modal-content" id="img-modal-content">
+</div>
+
+<div class="container">
+    <!-- BOX ERRORI -->
+    <div id="error-box"></div>
+
+    <div class="nav">
+        <button id="nav-quiz" class="active" onclick="switchTab('quiz')">Vai al Quiz</button>
+        <button id="nav-admin" onclick="switchTab('admin')">Area Admin</button>
+    </div>
+
+    <!-- QUIZ SECTION -->
+    <div id="quiz-section" class="section active">
+        
+        <!-- 1. MESSAGGIO CARICAMENTO -->
+        <div id="loading-msg" style="text-align:center; padding:20px;">⏳ Connessione al database in corso...</div>
+
+        <!-- 2. SCHERMATA DI START (NUOVA) -->
+        <div id="start-screen" style="display:none;">
+            <h2>Benvenuto al Quiz</h2>
+            <p style="color:#666; font-size:1.1em; margin-bottom:30px;">
+                Hai a disposizione <strong>45 minuti</strong> per rispondere a <strong>30 domande</strong>.<br>
+                Le domande e le risposte saranno mescolate.
+            </p>
+            <button class="btn-start" onclick="beginQuiz()">INIZIA IL TEST 🚀</button>
+        </div>
+
+        <!-- 3. INTERFACCIA QUIZ (DOMANDE) -->
+        <div id="quiz-interface" style="display:none;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-weight:bold; color:#555;">
+                <span id="progress-text">Domanda 1/30</span>
+                <span style="color:#d9534f;">⏱️ <span id="timer-display">45:00</span></span>
+            </div>
+            
+            <div class="question-content">
+                <img id="q-img-display" class="q-main-img" onclick="openModal(this.src)">
+                <div class="question-text" id="question-text"></div>
+            </div>
+
+            <div class="options-container" id="options-container"></div>
+            <div style="text-align:right; margin-top:20px;">
+                <button id="btn-next-action" style="display:none; background:#007bff; color:white; padding:10px 20px; border:none; border-radius:5px; cursor:pointer;" onclick="nextQuestion()">Avanti ➡</button>
+            </div>
+        </div>
+
+        <!-- 4. RISULTATI -->
+        <div id="result-container" style="display:none; text-align:center;">
+            <h2>Finito!</h2>
+            <p>Ecco il tuo punteggio finale:</p>
+            <div style="font-size:2em; color:#007bff; margin:20px;" id="final-score"></div>
+            <button class="btn-primary" onclick="showStartScreen()">Torna all'inizio</button>
+        </div>
+    </div>
+
+    <!-- ADMIN SECTION -->
+    <div id="admin-section" class="section">
+        <div id="admin-login" style="text-align:center; padding:20px;">
+            <input type="password" id="admin-pass" placeholder="Password: 1234">
+            <button class="btn-primary" onclick="checkAdminPass()">Login</button>
+        </div>
+        <div id="admin-panel" style="display:none;">
+            <h2>Gestione Domande</h2>
+            <div class="form-group"><input id="input-question" placeholder="Domanda"><input id="input-q-img" placeholder="URL Immagine Domanda"></div>
+            <div class="form-group"><input id="input-a" placeholder="Risp A"><input id="input-a-img" placeholder="URL Immagine A"></div>
+            <div class="form-group"><input id="input-b" placeholder="Risp B"><input id="input-b-img" placeholder="URL Immagine B"></div>
+            <div class="form-group"><input id="input-c" placeholder="Risp C"><input id="input-c-img" placeholder="URL Immagine C"></div>
+            <div class="form-group"><input id="input-d" placeholder="Risp D"><input id="input-d-img" placeholder="URL Immagine D"></div>
+            <select id="input-correct" style="margin-bottom:15px;">
+                <option value="0">A corretta</option>
+                <option value="1">B corretta</option>
+                <option value="2">C corretta</option>
+                <option value="3">D corretta</option>
+            </select>
+            <button id="btn-save" class="btn-primary" onclick="handleSave()">Salva</button>
+            <button id="btn-cancel" style="width:100%; margin-top:5px; padding:8px; border:none; background:#666; color:white; border-radius:5px; display:none;" onclick="cancelEdit()">Annulla</button>
+            <div style="margin-top:20px;" id="admin-list"></div>
+        </div>
+    </div>
+</div>
+
+<!-- FIREBASE CONFIGURAZIONE -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc, deleteDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    // --- INCOLLA QUI LE TUE CHIAVI ---
+   const firebaseConfig = {
+
+  apiKey: "AIzaSyCcb6QSktkxTKAn1Wkj8Ymb0bbDcEokksA",
+
+  authDomain: "enconimia-e-gestione.firebaseapp.com",
+
+  projectId: "enconimia-e-gestione",
+
+  storageBucket: "enconimia-e-gestione.firebasestorage.app",
+
+  messagingSenderId: "202411164578",
+
+  appId: "1:202411164578:web:8a209c25b2c6d0d9e828fb"
+
+};
+
+
+    try {
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const colRef = collection(db, 'questions');
+        
+        window.db = db;
+        window.colRef = colRef;
+        window.getDocs = getDocs;
+        window.addDoc = addDoc;
+        window.deleteDoc = deleteDoc;
+        window.updateDoc = updateDoc;
+        window.doc = doc;
+
+        loadFromCloud(); 
+    } catch (e) {
+        showError("ERRORE CONFIGURAZIONE: " + e.message);
+    }
+</script>
+
+<script>
+    // --- LOGICA ---
+    const ADMIN_PASS = "1234";
+    let allDB = [], quizQ = [], curIdx = 0, score = 0, isAns = false, editingId = null;
+    let timerInt = null, timeRem = 45 * 60;
+
+    function showError(msg) {
+        const box = document.getElementById('error-box');
+        document.getElementById('loading-msg').style.display = 'none';
+        box.style.display = 'block';
+        box.innerHTML = "⚠️ PROBLEMA:<br>" + msg;
+    }
+
+    async function loadFromCloud() {
+        try {
+            if (!window.getDocs) return;
+            const snapshot = await window.getDocs(window.colRef);
+            allDB = [];
+            snapshot.docs.forEach(d => allDB.push({ ...d.data(), id: d.id }));
+            
+            document.getElementById('loading-msg').style.display = 'none';
+            
+            // Dopo il caricamento, mostriamo la schermata di start
+            showStartScreen();
+            
+            renderAdminList();
+        } catch (err) {
+            showError(err.message);
+        }
+    }
+
+    // --- GESTIONE SCHERMATE ---
+    
+    // 1. Mostra solo il pulsante INIZIA
+    function showStartScreen() {
+        document.getElementById('start-screen').style.display = 'block';
+        document.getElementById('quiz-interface').style.display = 'none';
+        document.getElementById('result-container').style.display = 'none';
+        clearInterval(timerInt); // Ferma timer se attivo
+    }
+
+    // 2. Chiamata quando premi "INIZIA IL TEST"
+    window.beginQuiz = function() {
+        if(allDB.length === 0) { alert("Nessuna domanda nel database! Vai in Admin."); return; }
+        
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('quiz-interface').style.display = 'block';
+        
+        // Logica Reset e Start
+        curIdx = 0; score = 0; isAns = false;
+        // Mescola e prendi 30
+        quizQ = allDB.sort(() => 0.5 - Math.random()).slice(0, 30);
+        
+        startTimer();
+        loadQ();
+    }
+
+    function loadQ() {
+        if(curIdx >= quizQ.length) return finishQuiz();
+        const q = quizQ[curIdx];
+        document.getElementById('question-text').innerText = q.text;
+        document.getElementById('progress-text').innerText = `Domanda ${curIdx+1}/${quizQ.length}`;
+        
+        const imgEl = document.getElementById('q-img-display');
+        imgEl.style.display = (q.image) ? 'block' : 'none';
+        imgEl.src = q.image || "";
+
+        const cont = document.getElementById('options-container');
+        cont.innerHTML = "";
+        document.getElementById('btn-next-action').style.display = 'none';
+
+        let opts = q.options.map((txt, i) => ({ 
+            txt, 
+            img: (q.optionsImages && q.optionsImages[i]) || "", 
+            idx: i 
+        }));
+        opts.sort(() => 0.5 - Math.random());
+
+        opts.forEach(o => {
+            const btn = document.createElement('div');
+            btn.className = 'option-btn';
+            btn.dataset.idx = o.idx;
+            
+            let html = "";
+            if(o.img) html += `<img src="${o.img}" class="opt-img" style="display:block" onclick="openModal('${o.img}'); event.stopPropagation()">`;
+            html += `<span>${o.txt}</span>`;
+            btn.innerHTML = html;
+            
+            btn.onclick = () => check(o.idx, q.correct, btn, cont);
+            cont.appendChild(btn);
+        });
+        isAns = false;
+    }
+
+    function check(clickedIdx, correctIdx, btn, cont) {
+        if(isAns) return;
+        isAns = true;
+        
+        if(clickedIdx === correctIdx) {
+            btn.classList.add('correct');
+            score++;
+        } else {
+            btn.classList.add('wrong');
+        }
+        
+        Array.from(cont.children).forEach(b => {
+            if(parseInt(b.dataset.idx) === correctIdx) b.classList.add('correct');
+        });
+
+        const nxt = document.getElementById('btn-next-action');
+        nxt.style.display = 'inline-block';
+        nxt.innerText = (curIdx === quizQ.length - 1) ? "Fine" : "Avanti";
+    }
+
+    function nextQuestion() { curIdx++; loadQ(); }
+
+    // --- ADMIN ---
+    async function handleSave() {
+        const txt = document.getElementById('input-question').value;
+        const qImg = document.getElementById('input-q-img').value;
+        const opts = ['a','b','c','d'].map(x => document.getElementById('input-'+x).value);
+        const imgs = ['a','b','c','d'].map(x => document.getElementById('input-'+x+'-img').value);
+        const corr = parseInt(document.getElementById('input-correct').value);
+
+        if(!txt && !qImg) { alert("Inserisci almeno testo o immagine"); return; }
+
+        const btn = document.getElementById('btn-save');
+        btn.innerText = "Salvataggio...";
+        
+        try {
+            const data = { text: txt, image: qImg, options: opts, optionsImages: imgs, correct: corr };
+            if(editingId) await window.updateDoc(window.doc(window.db, 'questions', editingId), data);
+            else await window.addDoc(window.colRef, data);
+            
+            alert("Salvato!");
+            cancelEdit();
+            loadFromCloud();
+        } catch(e) { showError(e.message); }
+        btn.innerText = "Salva";
+    }
+
+    async function delQ(id) {
+        if(confirm("Eliminare?")) {
+            await window.deleteDoc(window.doc(window.db, 'questions', id));
+            loadFromCloud();
+        }
+    }
+
+    window.editQ = function(id) {
+        const q = allDB.find(x => x.id === id);
+        if(!q) return;
+        document.getElementById('input-question').value = q.text;
+        document.getElementById('input-q-img').value = q.image || "";
+        ['a','b','c','d'].forEach((x, i) => {
+            document.getElementById('input-'+x).value = q.options[i];
+            document.getElementById('input-'+x+'-img').value = (q.optionsImages && q.optionsImages[i]) || "";
+        });
+        document.getElementById('input-correct').value = q.correct;
+        editingId = id;
+        document.getElementById('btn-save').innerText = "Aggiorna";
+        document.getElementById('btn-cancel').style.display = 'block';
+        document.getElementById('admin-panel').scrollIntoView();
+    };
+
+    window.cancelEdit = function() {
+        editingId = null;
+        document.querySelectorAll('#admin-panel input').forEach(i => i.value = "");
+        document.getElementById('btn-save').innerText = "Salva";
+        document.getElementById('btn-cancel').style.display = 'none';
+    };
+
+    function renderAdminList() {
+        const l = document.getElementById('admin-list');
+        l.innerHTML = `<b>Domande totali: ${allDB.length}</b>`;
+        allDB.forEach(q => {
+            const d = document.createElement('div');
+            d.style = "background:#eee; padding:10px; margin:5px 0; display:flex; justify-content:space-between; align-items:center; border-left:4px solid #007bff";
+            d.innerHTML = `<span>${q.text.substring(0,30)}...</span> <div><button onclick="editQ('${q.id}')">✏️</button> <button onclick="delQ('${q.id}')">🗑️</button></div>`;
+            l.appendChild(d);
+        });
+    }
+
+    function startTimer() {
+        clearInterval(timerInt);
+        timeRem = 45*60;
+        timerInt = setInterval(() => {
+            timeRem--;
+            let m = Math.floor(timeRem/60), s = timeRem%60;
+            document.getElementById('timer-display').innerText = `${m}:${s<10?'0'+s:s}`;
+            if(timeRem<=0) finishQuiz();
+        }, 1000);
+    }
+
+    function finishQuiz() {
+        clearInterval(timerInt);
+        document.getElementById('quiz-interface').style.display = 'none';
+        document.getElementById('result-container').style.display = 'block';
+        document.getElementById('final-score').innerText = `${score} su ${quizQ.length}`;
+    }
+
+    // --- NAVIGAZIONE ---
+    window.switchTab = (t) => { 
+        document.querySelectorAll('.section').forEach(x => x.style.display='none'); 
+        document.getElementById(t+'-section').style.display='block';
+
+        document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+        document.getElementById('nav-'+t).classList.add('active');
+
+        if(t==='quiz') {
+            // Quando torni al tab quiz, mostra sempre la schermata di start, non il quiz in corso
+            showStartScreen();
+        }
+    };
+
+    window.openModal = (src) => { if(src) { document.getElementById('img-modal').style.display='flex'; document.getElementById('img-modal-content').src=src; } };
+    window.checkAdminPass = () => {
+        if(document.getElementById('admin-pass').value === ADMIN_PASS) {
+            document.getElementById('admin-login').style.display='none';
+            document.getElementById('admin-panel').style.display='block';
+        } else alert("Password errata");
+    };
+    
+    // Rendi accessibile la funzione showStartScreen
+    window.showStartScreen = showStartScreen;
+    window.nextQuestion = nextQuestion;
+    window.handleSave = handleSave;
+    window.delQ = delQ;
+
+</script>
+</body>
+</html>
