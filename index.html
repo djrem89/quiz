@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Cloud con Modifica</title>
+    <style>
+        /* --- CSS (Stile Grafico) --- */
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .container { background: white; width: 100%; max-width: 600px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 20px; position: relative; }
+        h1, h2 { text-align: center; color: #333; }
+        
+        /* Nav */
+        .nav { display: flex; justify-content: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .nav button { background: none; border: none; font-size: 16px; margin: 0 10px; cursor: pointer; padding: 5px 10px; color: #666; }
+        .nav button.active { color: #007bff; font-weight: bold; border-bottom: 2px solid #007bff; }
+        
+        /* Quiz UI */
+        .quiz-header { display: flex; justify-content: space-between; background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 20px; color: #555; }
+        .timer-box { font-weight: bold; color: #d9534f; display: flex; gap: 5px; }
+        .section { display: none; }
+        .section.active { display: block; }
+        .question-text { font-size: 1.2em; margin-bottom: 20px; font-weight: 600; }
+        .options-container { display: flex; flex-direction: column; gap: 10px; }
+        .option-btn { padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; background: white; cursor: pointer; text-align: left; transition: 0.2s; position: relative; }
+        .option-btn:hover { background: #f9f9f9; border-color: #ccc; }
+        .correct { background: #d4edda !important; border-color: #28a745 !important; color: #155724; }
+        .wrong { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24; }
+        
+        /* Pulsante Avanti */
+        #next-btn-container { margin-top: 20px; text-align: right; display: none; }
+        .btn-next { background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+
+        /* Admin Form */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em;}
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        
+        .btn-primary { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; }
+        .btn-primary:hover { background: #218838; }
+        /* Stile speciale quando siamo in modalità modifica */
+        .btn-edit-mode { background: #ffc107 !important; color: #333 !important; }
+
+        .btn-cancel { width: 100%; padding: 8px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 5px; display: none; }
+
+        /* Lista Admin */
+        .q-item { background: #f8f9fa; padding: 10px; margin-bottom: 10px; border-radius: 5px; border-left: 4px solid #007bff; display: flex; justify-content: space-between; align-items: center; }
+        .admin-actions { display: flex; gap: 5px; }
+        .delete-btn { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
+        .edit-btn { background: #ffc107; color: #333; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; }
+
+        #result-container { text-align: center; display: none; }
+        .score-board { font-size: 2em; color: #007bff; margin: 20px 0; }
+        #admin-login { text-align: center; padding: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="nav">
+        <button id="nav-quiz" class="active" onclick="switchTab('quiz')">Vai al Quiz</button>
+        <button id="nav-admin" onclick="switchTab('admin')">Area Admin</button>
+    </div>
+
+    <!-- SEZIONE QUIZ -->
+    <div id="quiz-section" class="section active">
+        <div id="loading-msg" style="text-align:center;">Caricamento domande dal Cloud...</div>
+        <div id="quiz-interface" style="display:none;">
+            <div class="quiz-header">
+                <span id="progress-text">Domanda 1/30</span>
+                <div class="timer-box"><span>⏱️</span><span id="timer-display">45:00</span></div>
+            </div>
+            <div class="question-text" id="question-text"></div>
+            <div class="options-container" id="options-container"></div>
+            <div id="next-btn-container">
+                <button id="btn-next-action" class="btn-next" onclick="nextQuestion()">Prossima ➡</button>
+            </div>
+        </div>
+        <div id="result-container">
+            <h2 id="result-title">Quiz Terminato!</h2>
+            <p id="result-msg">Risultato:</p>
+            <div class="score-board" id="final-score">0 / 0</div>
+            <button class="btn-primary" onclick="restartQuiz()">Ricomincia</button>
+        </div>
+    </div>
+
+    <!-- SEZIONE ADMIN -->
+    <div id="admin-section" class="section">
+        <div id="admin-login">
+            <h3>Area Riservata</h3>
+            <input type="password" id="admin-pass" placeholder="Inserisci password (demo: 1234)" style="margin-bottom:10px;">
+            <button class="btn-primary" onclick="checkAdminPass()">Entra</button>
+        </div>
+
+        <div id="admin-panel" style="display:none;">
+            <h2>Gestione Domande</h2>
+            
+            <div class="form-group"><label>Domanda:</label><input type="text" id="input-question"></div>
+            <div class="form-group"><label>Opzione A:</label><input type="text" id="input-a"></div>
+            <div class="form-group"><label>Opzione B:</label><input type="text" id="input-b"></div>
+            <div class="form-group"><label>Opzione C:</label><input type="text" id="input-c"></div>
+            <div class="form-group"><label>Opzione D:</label><input type="text" id="input-d"></div>
+            <div class="form-group">
+                <label>Risposta Corretta:</label>
+                <select id="input-correct">
+                    <option value="0">Opzione A</option>
+                    <option value="1">Opzione B</option>
+                    <option value="2">Opzione C</option>
+                    <option value="3">Opzione D</option>
+                </select>
+            </div>
+            
+            <!-- Bottone Salva / Aggiorna -->
+            <button id="btn-save" class="btn-primary" onclick="handleSave()">Salva nel Cloud</button>
+            <button id="btn-cancel-edit" class="btn-cancel" onclick="cancelEditMode()">Annulla Modifica</button>
+
+            <div class="question-list">
+                <h3>Domande nel Database (<span id="questions-count">0</span>)</h3>
+                <div id="admin-list">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FIREBASE SDK -->
+<script type="module">
+    // --- IMPORTIAMO ANCHE 'updateDoc' ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc, deleteDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    // --- CONFIGURAZIONE ---
+  const firebaseConfig = {
+
+  apiKey: "AIzaSyCcb6QSktkxTKAn1Wkj8Ymb0bbDcEokksA",
+
+  authDomain: "enconimia-e-gestione.firebaseapp.com",
+
+  projectId: "enconimia-e-gestione",
+
+  storageBucket: "enconimia-e-gestione.firebasestorage.app",
+
+  messagingSenderId: "202411164578",
+
+  appId: "1:202411164578:web:8a209c25b2c6d0d9e828fb"
+
+};
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const colRef = collection(db, 'questions');
+
+    // Funzioni globali
+    window.db = db;
+    window.colRef = colRef;
+    window.getDocs = getDocs;
+    window.addDoc = addDoc;
+    window.deleteDoc = deleteDoc;
+    window.updateDoc = updateDoc;
+    window.doc = doc;
+    
+    loadFromCloud();
+</script>
+
+<script>
+    // --- CONFIGURAZIONE APP ---
+    const ADMIN_PASSWORD = "1234"; 
+    const MAX_TIME_MINUTES = 45;
+    const MAX_QUESTIONS = 30;
+
+    // --- VARIABILI STATO ---
+    let allQuestionsDB = [];
+    let quizQuestions = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let isAnswering = false;
+    let timeRemaining = 0;
+    let timerInterval = null;
+
+    // Variabile per gestire la modifica (se null, stiamo creando. se ha un ID, stiamo modificando)
+    let editingId = null; 
+
+    // --- LOGICA CLOUD ---
+
+    async function loadFromCloud() {
+        try {
+            const snapshot = await window.getDocs(window.colRef);
+            allQuestionsDB = [];
+            snapshot.docs.forEach(doc => {
+                allQuestionsDB.push({ ...doc.data(), id: doc.id });
+            });
+            renderAdminList();
+            document.getElementById('loading-msg').style.display = 'none';
+        } catch (err) {
+            console.error(err);
+            document.getElementById('loading-msg').innerText = "Errore Database: Controlla le chiavi o le regole.";
+        }
+    }
+
+    // Questa funzione gestisce sia il SALVATAGGIO che la MODIFICA
+    async function handleSave() {
+        const text = document.getElementById('input-question').value;
+        const opts = [
+            document.getElementById('input-a').value,
+            document.getElementById('input-b').value,
+            document.getElementById('input-c').value,
+            document.getElementById('input-d').value
+        ];
+        const correct = parseInt(document.getElementById('input-correct').value);
+
+        if (!text || opts.some(o => o.trim() === "")) { alert("Compila tutto!"); return; }
+
+        const btn = document.getElementById('btn-save');
+        const oldText = btn.innerText;
+        btn.innerText = "Attendere...";
+        btn.disabled = true;
+
+        try {
+            if (editingId) {
+                // --- MODALITÀ MODIFICA ---
+                const docRef = window.doc(window.db, 'questions', editingId);
+                await window.updateDoc(docRef, {
+                    text: text,
+                    options: opts,
+                    correct: correct
+                });
+                alert("Domanda aggiornata con successo! ✏️");
+            } else {
+                // --- MODALITÀ NUOVA DOMANDA ---
+                await window.addDoc(window.colRef, {
+                    text: text,
+                    options: opts,
+                    correct: correct
+                });
+                alert("Domanda aggiunta! ✅");
+            }
+            
+            // Resetta tutto
+            cancelEditMode();
+            await loadFromCloud();
+
+        } catch (e) {
+            alert("Errore: " + e.message);
+        }
+        
+        btn.innerText = oldText; // Ripristina testo bottone (anche se reset lo cambia)
+        btn.disabled = false;
+        // Forza il controllo dello stato del bottone
+        if(!editingId) btn.innerText = "Salva nel Cloud"; 
+    }
+
+    async function deleteQuestionCloud(id) {
+        if(confirm("Eliminare definitivamente?")) {
+            await window.deleteDoc(window.doc(window.db, 'questions', id));
+            loadFromCloud();
+        }
+    }
+
+    // Funzione chiamata quando clicchi "Modifica"
+    function editQuestionStart(id) {
+        // 1. Trova la domanda nell'array locale
+        const q = allQuestionsDB.find(item => item.id === id);
+        if(!q) return;
+
+        // 2. Metti i dati nei campi di input
+        document.getElementById('input-question').value = q.text;
+        document.getElementById('input-a').value = q.options[0];
+        document.getElementById('input-b').value = q.options[1];
+        document.getElementById('input-c').value = q.options[2];
+        document.getElementById('input-d').value = q.options[3];
+        document.getElementById('input-correct').value = q.correct;
+
+        // 3. Imposta lo stato "Modifica"
+        editingId = id;
+        
+        // 4. Cambia aspetto dei bottoni
+        const btnSave = document.getElementById('btn-save');
+        btnSave.innerText = "Aggiorna Modifica ✏️";
+        btnSave.classList.add('btn-edit-mode');
+        
+        document.getElementById('btn-cancel-edit').style.display = 'block';
+
+        // 5. Porta l'utente su in alto al form
+        document.getElementById('admin-panel').scrollIntoView({behavior: 'smooth'});
+    }
+
+    function cancelEditMode() {
+        editingId = null;
+        
+        // Pulisci campi
+        document.getElementById('input-question').value = '';
+        ['a','b','c','d'].forEach(id => document.getElementById('input-'+id).value = '');
+        document.getElementById('input-correct').value = 0;
+
+        // Reset bottoni
+        const btnSave = document.getElementById('btn-save');
+        btnSave.innerText = "Salva nel Cloud";
+        btnSave.classList.remove('btn-edit-mode');
+        
+        document.getElementById('btn-cancel-edit').style.display = 'none';
+    }
+
+    // --- LOGICA QUIZ (STANDARD) ---
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    function startQuiz() {
+        if(allQuestionsDB.length === 0) {
+            alert("Nessuna domanda disponibile!");
+            return;
+        }
+
+        currentQuestionIndex = 0;
+        score = 0;
+        isAnswering = false;
+        
+        let tempQuestions = JSON.parse(JSON.stringify(allQuestionsDB));
+        quizQuestions = shuffleArray(tempQuestions).slice(0, MAX_QUESTIONS);
+
+        document.getElementById('result-container').style.display = 'none';
+        document.getElementById('quiz-interface').style.display = 'block';
+
+        startTimer();
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        document.getElementById('next-btn-container').style.display = 'none';
+        if (currentQuestionIndex >= quizQuestions.length) { finishQuiz(false); return; }
+
+        const q = quizQuestions[currentQuestionIndex];
+        document.getElementById('question-text').innerText = q.text;
+        document.getElementById('progress-text').innerText = `Domanda ${currentQuestionIndex + 1}/${quizQuestions.length}`;
+
+        const container = document.getElementById('options-container');
+        container.innerHTML = '';
+
+        let answers = q.options.map((opt, idx) => ({ text: opt, originalIndex: idx }));
+        answers = shuffleArray(answers);
+
+        answers.forEach((ans) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = ans.text;
+            btn.onclick = () => checkAnswer(ans.originalIndex, q.correct, btn, container);
+            container.appendChild(btn);
+        });
+        isAnswering = false;
+    }
+
+    function checkAnswer(clickedIdx, correctIdx, btn, container) {
+        if (isAnswering) return;
+        isAnswering = true;
+        const buttons = container.querySelectorAll('.option-btn');
+        
+        if (clickedIdx === correctIdx) {
+            btn.classList.add('correct');
+            score++;
+        } else {
+            btn.classList.add('wrong');
+            buttons.forEach(b => {
+                if (b.innerText === quizQuestions[currentQuestionIndex].options[correctIdx]) b.classList.add('correct');
+            });
+        }
+        
+        const nextBtnCont = document.getElementById('next-btn-container');
+        const nextBtn = document.getElementById('btn-next-action');
+        nextBtnCont.style.display = 'block';
+        nextBtn.innerText = (currentQuestionIndex === quizQuestions.length - 1) ? "Concludi Test 🏁" : "Prossima ➡";
+    }
+
+    function nextQuestion() { currentQuestionIndex++; loadQuestion(); }
+
+    function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timeRemaining = MAX_TIME_MINUTES * 60; 
+        updateTimer();
+        timerInterval = setInterval(() => {
+            timeRemaining--;
+            updateTimer();
+            if (timeRemaining <= 0) { clearInterval(timerInterval); finishQuiz(true); }
+        }, 1000);
+    }
+    function updateTimer() {
+        const m = Math.floor(timeRemaining / 60).toString().padStart(2,'0');
+        const s = (timeRemaining % 60).toString().padStart(2,'0');
+        document.getElementById('timer-display').innerText = `${m}:${s}`;
+    }
+    function finishQuiz(isTimeOut) {
+        if(timerInterval) clearInterval(timerInterval);
+        document.getElementById('quiz-interface').style.display = 'none';
+        document.getElementById('result-container').style.display = 'block';
+        document.getElementById('result-title').innerText = isTimeOut ? "Tempo Scaduto!" : "Quiz Completato!";
+        document.getElementById('final-score').innerText = `${score} / ${quizQuestions.length}`;
+    }
+    function restartQuiz() { startQuiz(); }
+
+    // --- ADMIN UTILS ---
+    function checkAdminPass() {
+        if(document.getElementById('admin-pass').value === ADMIN_PASSWORD) {
+            document.getElementById('admin-login').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'block';
+        } else alert("Password errata");
+    }
+
+    function renderAdminList() {
+        const list = document.getElementById('admin-list');
+        list.innerHTML = '';
+        document.getElementById('questions-count').innerText = allQuestionsDB.length;
+        allQuestionsDB.forEach((q) => {
+            const div = document.createElement('div');
+            div.className = 'q-item';
+            div.innerHTML = `
+                <div style="flex-grow:1; margin-right:10px;"><strong>${q.text}</strong></div>
+                <div class="admin-actions">
+                    <button class="edit-btn" onclick="editQuestionStart('${q.id}')">✏️</button>
+                    <button class="delete-btn" onclick="deleteQuestionCloud('${q.id}')">🗑️</button>
+                </div>`;
+            list.appendChild(div);
+        });
+    }
+
+    function switchTab(tab) {
+        document.querySelectorAll('.section').forEach(e=>e.classList.remove('active'));
+        document.querySelectorAll('.nav button').forEach(e=>e.classList.remove('active'));
+        document.getElementById(tab+'-section').classList.add('active');
+        document.getElementById('nav-'+tab).classList.add('active');
+        if(tab==='quiz') startQuiz();
+    }
+</script>
+</body>
+</html>
