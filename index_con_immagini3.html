@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz con Zoom Immagini</title>
+    <title>Quiz Zoom Totale</title>
     <style>
         /* --- CSS GENERALE --- */
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
@@ -25,21 +25,21 @@
         .question-content { text-align: center; margin-bottom: 20px; }
         .question-text { font-size: 1.3em; font-weight: 600; margin-top: 10px; text-align: left; }
         
-        /* Immagine piccola nel quiz */
+        /* Immagine Domanda */
         .q-main-img { 
             max-width: 100%; 
-            max-height: 250px; /* Altezza limitata per non occupare tutto lo schermo */
+            max-height: 250px; 
             border-radius: 8px; 
             margin-bottom: 5px; 
             display: none; 
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            cursor: zoom-in; /* Icona lente d'ingrandimento */
+            cursor: zoom-in; 
             transition: transform 0.2s;
         }
         .q-main-img:hover { transform: scale(1.02); opacity: 0.9; }
         .zoom-hint { font-size: 0.8em; color: #888; margin-bottom: 10px; display: none; }
 
-        /* --- MODAL (LO ZOOM A TUTTO SCHERMO) --- */
+        /* --- MODAL (ZOOM A TUTTO SCHERMO) --- */
         #img-modal {
             display: none; 
             position: fixed; 
@@ -47,7 +47,7 @@
             left: 0; top: 0; 
             width: 100%; height: 100%; 
             overflow: auto; 
-            background-color: rgba(0,0,0,0.9); /* Sfondo nero semitrasparente */
+            background-color: rgba(0,0,0,0.9); 
             justify-content: center;
             align-items: center;
             animation: fadeIn 0.3s;
@@ -55,8 +55,8 @@
         .modal-content {
             margin: auto;
             display: block;
-            max-width: 90%;
-            max-height: 90%;
+            max-width: 95%;
+            max-height: 95%;
             border-radius: 5px;
             box-shadow: 0 0 20px rgba(255,255,255,0.2);
         }
@@ -70,17 +70,28 @@
             transition: 0.3s;
             cursor: pointer;
         }
-        .close-modal:hover, .close-modal:focus { color: #bbb; text-decoration: none; cursor: pointer; }
+        .close-modal:hover { color: #bbb; }
         @keyframes fadeIn { from {opacity: 0} to {opacity: 1} }
 
-        /* --- OPZIONI --- */
+        /* --- OPZIONI E IMMAGINI RISPOSTE --- */
         .options-container { display: flex; flex-direction: column; gap: 10px; }
         .option-btn { 
             padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; background: white; cursor: pointer; 
             text-align: left; font-size: 1em; transition: 0.2s; display: flex; align-items: center; gap: 15px; 
         }
         .option-btn:hover { background: #f9f9f9; border-color: #ccc; }
-        .opt-img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; display: none; }
+        
+        /* Immagine nella risposta */
+        .opt-img { 
+            width: 70px; height: 70px; /* Un po' più grande per vederla meglio */
+            object-fit: cover; 
+            border-radius: 4px; 
+            border: 1px solid #ddd; 
+            display: none; 
+            cursor: zoom-in; /* Cursore lente */
+            transition: transform 0.2s;
+        }
+        .opt-img:hover { transform: scale(1.1); border-color: #007bff; }
         
         .correct { background: #d4edda !important; border-color: #28a745 !important; color: #155724; }
         .wrong { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24; }
@@ -106,7 +117,7 @@
 </head>
 <body>
 
-<!-- IL RIQUADRO MODAL (NASCOSTO DI DEFAULT) -->
+<!-- IL RIQUADRO MODAL (ZOOM) -->
 <div id="img-modal" onclick="closeModal()">
     <span class="close-modal">&times;</span>
     <img class="modal-content" id="img-modal-content">
@@ -128,9 +139,8 @@
             </div>
             
             <div class="question-content">
-                <!-- Immagine Domanda -->
                 <img id="q-img-display" class="q-main-img" src="" alt="Immagine domanda" onclick="openModal(this.src)">
-                <div id="zoom-hint" class="zoom-hint">(Clicca l'immagine per ingrandire 🔍)</div>
+                <div id="zoom-hint" class="zoom-hint">(Clicca le immagini per ingrandire 🔍)</div>
                 <div class="question-text" id="question-text"></div>
             </div>
 
@@ -191,7 +201,7 @@
     import { getFirestore, collection, getDocs, addDoc, deleteDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
     // --- INCOLLA QUI LE TUE CHIAVI FIREBASE ---
-    const firebaseConfig = {
+  const firebaseConfig = {
 
   apiKey: "AIzaSyCcb6QSktkxTKAn1Wkj8Ymb0bbDcEokksA",
 
@@ -224,8 +234,7 @@
 </script>
 
 <script>
-    // --- FUNZIONI GLOBALI ZOOM IMMAGINI ---
-    // Definiamo queste funzioni fuori dal modulo per essere usate dall'HTML onclick
+    // --- FUNZIONI GLOBALI ZOOM ---
     window.openModal = function(src) {
         const modal = document.getElementById('img-modal');
         const modalImg = document.getElementById('img-modal-content');
@@ -237,7 +246,7 @@
         document.getElementById('img-modal').style.display = "none";
     }
 
-    // --- CONFIGURAZIONE APP ---
+    // --- CONFIGURAZIONE ---
     const ADMIN_PASSWORD = "1234"; 
     const MAX_TIME_MINUTES = 45;
     const MAX_QUESTIONS = 30;
@@ -256,9 +265,7 @@
         try {
             const snapshot = await window.getDocs(window.colRef);
             allQuestionsDB = [];
-            snapshot.docs.forEach(doc => {
-                allQuestionsDB.push({ ...doc.data(), id: doc.id });
-            });
+            snapshot.docs.forEach(doc => { allQuestionsDB.push({ ...doc.data(), id: doc.id }); });
             renderAdminList();
             document.getElementById('loading-msg').style.display = 'none';
         } catch (err) {
@@ -284,7 +291,7 @@
         ];
         const correct = parseInt(document.getElementById('input-correct').value);
 
-        if (!text || opts.some(o => o.trim() === "")) { alert("Compila domanda e risposte!"); return; }
+        if (!text || opts.some(o => o.trim() === "")) { alert("Compila tutto!"); return; }
 
         const btn = document.getElementById('btn-save');
         const oldText = btn.innerText;
@@ -330,7 +337,6 @@
         ['a','b','c','d'].forEach((char, i) => {
             document.getElementById('input-'+char+'-img').value = (q.optionsImages && q.optionsImages[i]) || "";
         });
-
         editingId = id;
         const btnSave = document.getElementById('btn-save');
         btnSave.innerText = "Aggiorna Modifica ✏️";
@@ -355,7 +361,6 @@
     }
 
     // --- QUIZ LOGIC ---
-
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -383,7 +388,6 @@
         document.getElementById('question-text').innerText = q.text;
         document.getElementById('progress-text').innerText = `Domanda ${currentQuestionIndex + 1}/${quizQuestions.length}`;
 
-        // Immagine Domanda e Zoom
         const qImgDisplay = document.getElementById('q-img-display');
         const zoomHint = document.getElementById('zoom-hint');
         if (q.image && q.image.trim() !== "") {
@@ -405,7 +409,13 @@
             const btn = document.createElement('button');
             btn.className = 'option-btn';
             let btnHtml = "";
-            if (ans.img && ans.img.trim() !== "") { btnHtml += `<img src="${ans.img}" class="opt-img" style="display:block">`; }
+            
+            // --- QUI C'È LA MAGIA PER LE RISPOSTE ---
+            if (ans.img && ans.img.trim() !== "") { 
+                // onclick: apre il modal
+                // event.stopPropagation(): IMPEDISCE che il click arrivi al bottone (quindi non rispondi)
+                btnHtml += `<img src="${ans.img}" class="opt-img" style="display:block" onclick="openModal(this.src); event.stopPropagation();">`; 
+            }
             btnHtml += `<span>${ans.text}</span>`;
             btn.innerHTML = btnHtml;
             btn.onclick = () => checkAnswer(ans.originalIndex, q.correct, btn, container);
