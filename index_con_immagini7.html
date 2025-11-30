@@ -174,15 +174,21 @@
     import { getFirestore, collection, getDocs, addDoc, deleteDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
     // --- INCOLLA QUI LE TUE CHIAVI ---
-    const firebaseConfig = {
-        apiKey: "TUE_CHIAVI_QUI",
-        authDomain: "TUE_CHIAVI_QUI",
-        projectId: "TUE_CHIAVI_QUI",
-        storageBucket: "TUE_CHIAVI_QUI",
-        messagingSenderId: "TUE_CHIAVI_QUI",
-        appId: "TUE_CHIAVI_QUI"
-    };
+  const firebaseConfig = {
 
+  apiKey: "AIzaSyCcb6QSktkxTKAn1Wkj8Ymb0bbDcEokksA",
+
+  authDomain: "enconimia-e-gestione.firebaseapp.com",
+
+  projectId: "enconimia-e-gestione",
+
+  storageBucket: "enconimia-e-gestione.firebasestorage.app",
+
+  messagingSenderId: "202411164578",
+
+  appId: "1:202411164578:web:8a209c25b2c6d0d9e828fb"
+
+};
     try {
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
